@@ -1,0 +1,15 @@
+[package]
+name = "net-fifteen"
+version = "0.1.0"
+authors = ["Bart Massey <bart@cs.pdx.edu>"]
+
+[dependencies]
+
+[[bin]]
+name = "n15_server"
+path = "src/n15_server.rs"
+
+
+[[bin]]
+name = "n15_client"
+path = "src/n15_client.rs"
