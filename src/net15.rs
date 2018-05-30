@@ -10,6 +10,16 @@ use std::net::*;
 use std::collections::HashSet;
 use std::io::{BufRead, Write};
 
+fn set_rep(s: &HashSet<u64>) -> String {
+    let mut elems: Vec<&u64> = s.iter().collect();
+    elems.sort();
+    let result: Vec<String> = elems
+        .into_iter()
+        .map(|i| i.to_string())
+        .collect();
+    result.join(" ")
+}
+
 fn get_client() -> TcpStream {
     loop {
         let listener = TcpListener::bind("127.0.0.1:10015").unwrap();
@@ -73,9 +83,10 @@ fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), s
     let mut you = PlayerState::new();
     let mut me = PlayerState::new();
     loop {
-        writeln!(writer, "me: {:?}", me.0)?;
-        writeln!(writer, "you: {:?}", you.0)?;
-        writeln!(writer, "available: {:?}", unused)?;
+        writeln!(writer)?;
+        writeln!(writer, "me: {}", set_rep(&me.0))?;
+        writeln!(writer, "you: {}", set_rep(&you.0))?;
+        writeln!(writer, "available: {}", set_rep(&unused))?;
         write!(writer, "move: ")?;
         writer.flush()?;
         let mut answer = String::new();
@@ -94,7 +105,8 @@ fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), s
         }
         you.insert(n);
         if let Some(win) = you.won() {
-            writeln!(writer, "{:?}", win)?;
+            writeln!(writer)?;
+            writeln!(writer, "{}", set_rep(&win))?;
             writeln!(writer, "you win")?;
             return Ok(());
         }
@@ -108,11 +120,13 @@ fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), s
             let index = random::<usize>() % choicevec.len();
             choice = *choicevec[index];
         }
+        writeln!(writer)?;
         writeln!(writer, "I choose {}", choice)?;
         unused.remove(&choice);
         me.insert(choice);
         if let Some(win) = me.won() {
-            writeln!(writer, "{:?}", win)?;
+            writeln!(writer)?;
+            writeln!(writer, "{}", set_rep(&win))?;
             writeln!(writer, "I win")?;
             return Ok(());
         }
