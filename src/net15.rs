@@ -20,21 +20,6 @@ fn set_rep(s: &HashSet<u64>) -> String {
     result.join(" ")
 }
 
-fn get_client() -> TcpStream {
-    loop {
-        let listener = TcpListener::bind("127.0.0.1:10015").unwrap();
-        match listener.accept() {
-            Ok((socket, addr)) => {
-                println!("new client: {:?}", addr);
-                return socket;
-            },
-            Err(e) => {
-                println!("couldn't get client: {:?}", e);
-            },
-        }
-    }
-}
-
 fn choose(s: &HashSet<u64>, n: u64) -> Vec<HashSet<u64>> {
     if n == 0 || s.len() < n as usize {
         return Vec::new();
@@ -139,9 +124,21 @@ fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), s
 
 fn main() {
     loop {
-        let reader = get_client();
-        let mut writer = reader.try_clone().unwrap();
-        writeln!(writer, "n15 v0.0.0.1").unwrap();
-        game_loop(std::io::BufReader::new(reader), writer).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:10015").unwrap();
+        match listener.accept() {
+            Ok((socket, addr)) => {
+                println!("new client: {:?}", addr);
+                let _ = std::thread::spawn(move || {
+                    let reader = socket;
+                    let mut writer = reader.try_clone().unwrap();
+                    writeln!(writer, "n15 v0.0.0.1").unwrap();
+                    let reader = std::io::BufReader::new(reader);
+                    game_loop(reader, writer).unwrap();
+                });
+            },
+            Err(e) => {
+                println!("couldn't get client: {:?}", e);
+            },
+        }
     }
 }
