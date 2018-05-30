@@ -14,8 +14,3 @@ rand = "*"
 [[bin]]
 name = "n15_server"
 path = "src/n15_server.rs"
-
-
-[[bin]]
-name = "n15_client"
-path = "src/n15_client.rs"
