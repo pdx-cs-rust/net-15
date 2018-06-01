@@ -83,93 +83,99 @@ impl Numbers {
     }
 }
 
-type Mover<'a> = fn(
-    &'a mut Numbers,
-    &'a mut Player,
-    &'a Player,
-    &'a mut BufRead,
-    &'a mut Write) ->
-    Result<(), Error>;
-
-struct Player<'a> {
+struct PlayerState {
     numbers: Numbers,
     name: &'static str,
-    mover: Mover<'a>,
 }
 
-impl<'a> Player<'a> {
-    fn new(name: &'static str,
-           mover: Mover<'a>) -> Player<'a>
-    {
-        Player {
+impl PlayerState {
+    fn new(name: &'static str) -> Self {
+        PlayerState {
             numbers: Numbers::new(),
             name,
-            mover,
         }
     }
+}
 
-    fn make_move (
-        &'a mut self, 
-        board: &'a mut Numbers,
-        opponent: &'a Player<'a>,
-        reader: &'a mut BufRead,
-        writer: &'a mut Write) ->
+trait Player {
+    fn make_move(
+        &mut self,
+        &mut Numbers,
+        &PlayerState,
+        &mut BufRead,
+        &mut Write) ->
+        Result<(), Error>;
+
+    fn state(&self) -> &PlayerState;
+}
+
+
+struct HumanPlayer(PlayerState);
+
+impl Player for HumanPlayer {
+
+    fn make_move(&mut self,
+        board: &mut Numbers,
+        opponent: &PlayerState,
+        reader: &mut BufRead,
+        writer: &mut Write) ->
         Result<(), Error>
     {
-        (self.mover)(board, self, opponent, reader, writer)
-    }
-}           
-
-fn human_move<'a>(
-    board: &'a mut Numbers,
-    player: &'a mut Player,
-    opponent: &'a Player,
-    reader: &'a mut BufRead,
-    writer: &'a mut Write) ->
-    Result<(), Error>
-{
-    loop {
-        writeln!(writer)?;
-        writeln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
-        writeln!(writer, "{}: {}", player.name, player.numbers)?;
-        writeln!(writer, "available: {}", *board)?;
-        write!(writer, "move: ")?;
-        writer.flush()?;
-        let mut answer = String::new();
-        reader.read_line(&mut answer)?;
-        let n = answer.trim().parse::<u64>();
-        let n = match n {
-            Ok(n) => n,
-            Err(_) => {
-                writeln!(writer, "bad choice try again")?;
-                continue;
+        loop {
+            writeln!(writer)?;
+            writeln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
+            writeln!(writer, "{}: {}", self.0.name, self.0.numbers)?;
+            writeln!(writer, "available: {}", *board)?;
+            write!(writer, "move: ")?;
+            writer.flush()?;
+            let mut answer = String::new();
+            reader.read_line(&mut answer)?;
+            let n = answer.trim().parse::<u64>();
+            let n = match n {
+                Ok(n) => n,
+                Err(_) => {
+                    writeln!(writer, "bad choice try again")?;
+                    continue;
+                }
+            };
+            if board.remove(n) {
+                self.0.numbers.insert(n);
+                break;
             }
-        };
-        if board.remove(n) {
-            player.numbers.insert(n);
-            break;
+            writeln!(writer, "unavailable choice try again")?;
         }
-        writeln!(writer, "unavailable choice try again")?;
+        Ok(())
     }
-    Ok(())
-}
- 
-fn machine_move<'a>(
-    board: &'a mut Numbers,
-    player: &'a mut Player,
-    _: &'a Player,
-    _: &'a mut BufRead,
-    writer: &'a mut Write) ->
-    Result<(), Error>
-{
-    let choice = board.random_choice();
-    writeln!(writer, "{} choose {}", player.name, choice)?;
-    board.remove(choice);
-    player.numbers.insert(choice);
-    Ok(())
+
+    fn state(&self) -> &PlayerState {
+        &self.0
+    }
 }
 
-fn game_loop<'a, T, U>(mut reader: T, mut writer: U) ->
+struct MachinePlayer(PlayerState);
+
+impl Player for MachinePlayer {
+
+    fn make_move(&mut self,
+        board: &mut Numbers,
+        _: &PlayerState,
+        _: &mut BufRead,
+        writer: &mut Write) ->
+        Result<(), Error>
+    {
+        let choice = board.random_choice();
+        writeln!(writer, "{} choose {}", self.0.name, choice)?;
+        board.remove(choice);
+        self.0.numbers.insert(choice);
+        Ok(())
+    }
+
+    fn state(&self) -> &PlayerState {
+        &self.0
+    }
+}
+
+fn game_loop<T, U>(mut reader: T, mut writer: U) ->
     Result<(), Error>
     where T: BufRead, U: Write
 {
@@ -177,22 +183,21 @@ fn game_loop<'a, T, U>(mut reader: T, mut writer: U) ->
     for i in 1..=9 {
         board.insert(i);
     }
-    let mut player = Player::new("you", human_move);
-    let mut opponent = Player::new("I", machine_move);
+    let mut player = HumanPlayer(PlayerState::new("you"));
+    let mut opponent = MachinePlayer(PlayerState::new("I"));
     loop {
-        player.make_move(&mut board, &mut opponent,
+        player.make_move(&mut board, opponent.state(),
                          &mut reader, &mut writer)?;
-        if let Some(win) = player.numbers.won() {
+        if let Some(win) = player.state().numbers.won() {
             writeln!(writer)?;
             writeln!(writer, "{}", win)?;
-            writeln!(writer, "{} win", player.name)?;
+            writeln!(writer, "{} win", player.state().name)?;
             return Ok(());
         }
         if board.is_empty() {
             writeln!(writer, "draw")?;
             return Ok(());
         }
-        std::mem::swap(&mut player, &mut opponent);
     }
 }
 
