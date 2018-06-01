@@ -122,7 +122,6 @@ impl Player for HumanPlayer {
         Result<(), Error>
     {
         loop {
-            writeln!(writer)?;
             writeln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
             writeln!(writer, "{}: {}", self.0.name, self.0.numbers)?;
             writeln!(writer, "available: {}", *board)?;
@@ -183,9 +182,20 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
     for i in 1..=9 {
         board.insert(i);
     }
-    let mut player = HumanPlayer(PlayerState::new("you"));
-    let mut opponent = MachinePlayer(PlayerState::new("I"));
+    let mut human = HumanPlayer(PlayerState::new("you"));
+    let mut machine = MachinePlayer(PlayerState::new("I"));
+    let mut turn = 0;
     loop {
+        let player: &mut Player;
+        let opponent: &Player;
+        if turn % 2 == 0 {
+            player = &mut human;
+            opponent = &machine;
+        } else {
+            player = &mut machine;
+            opponent = &human;
+        }
+        writeln!(writer)?;
         player.make_move(&mut board, opponent.state(),
                          &mut reader, &mut writer)?;
         if let Some(win) = player.state().numbers.won() {
@@ -195,9 +205,11 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
             return Ok(());
         }
         if board.is_empty() {
+            writeln!(writer)?;
             writeln!(writer, "draw")?;
             return Ok(());
         }
+        turn += 1;
     }
 }
 
