@@ -9,69 +9,92 @@ use rand::random;
 use std::net::*;
 use std::collections::HashSet;
 use std::io::{BufRead, Write};
+use std::fmt::{self, Display};
 
-fn set_rep(s: &HashSet<u64>) -> String {
-    let mut elems: Vec<&u64> = s.iter().collect();
-    elems.sort();
-    let result: Vec<String> = elems
-        .into_iter()
-        .map(|i| i.to_string())
-        .collect();
-    result.join(" ")
-}
+#[derive(Clone)]
+struct Numbers(HashSet<u64>);
 
-fn choose(s: &HashSet<u64>, n: u64) -> Vec<HashSet<u64>> {
-    if n == 0 || s.len() < n as usize {
-        return Vec::new();
-    }
-    if s.len() == n as usize {
-        return vec![s.clone()];
-    }
-    let mut result: Vec<HashSet<u64>> = Vec::new();
-    for e in s {
-        let mut t = s.clone();
-        t.remove(e);
-        result.extend(choose(&t, n));
-        let v: Vec<HashSet<u64>> = choose(&t, n - 1)
+impl Display for Numbers {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut elems: Vec<&u64> = self.0.iter().collect();
+        elems.sort();
+        let result: Vec<String> = elems
             .into_iter()
-            .map(|mut w| {
-                w.insert(*e);
-                w
-            })
+            .map(|i| i.to_string())
             .collect();
-        result.extend(v);
+        let result = result.join(" ");
+        write!(f, "{}", result)
     }
-    result
 }
 
-struct PlayerState(HashSet<u64>);
+impl Numbers {
 
-impl PlayerState {
-    fn new() -> PlayerState {
-        PlayerState(HashSet::new())
+    fn new() -> Numbers {
+        Numbers(HashSet::new())
     }
 
     fn insert(&mut self, e: u64) {
         assert!(self.0.insert(e));
     }
 
-    fn won(&self) -> Option<HashSet<u64>> {
-        choose(&self.0, 3).into_iter().find(|s| s.iter().sum::<u64>() == 15)
+    fn remove(&mut self, e: u64) -> bool {
+        self.0.remove(&e)
+    }
+
+    fn won(&self) -> Option<Numbers> {
+        self.choose(3).into_iter().find(|Numbers(s)| {
+            s.iter().sum::<u64>() == 15
+        })
+    }
+
+    fn random_choice(&self) -> u64 {
+        let choicevec: Vec<&u64> = self.0.iter().collect();
+        let index = random::<usize>() % choicevec.len();
+        *choicevec[index]
+    }
+
+    fn choose(&self, n: u64) -> Vec<Numbers> {
+        let s = &self.0;
+        if n == 0 || s.len() < n as usize {
+            return Vec::new();
+        }
+        if s.len() == n as usize {
+            return vec![Numbers(s.clone())];
+        }
+        let mut result: Vec<Numbers> = Vec::new();
+        for e in s {
+            let mut t = (*self).clone();
+            t.remove(*e);
+            result.extend(t.choose(n));
+            let v: Vec<Numbers> = t.choose(n - 1)
+                .into_iter()
+                .map(|mut w| {
+                    w.insert(*e);
+                    w
+                })
+                .collect();
+            result.extend(v);
+        }
+        result
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
 fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), std::io::Error> {
-    let mut unused = HashSet::new();
+    let mut unused = Numbers::new();
     for i in 1..=9 {
         unused.insert(i);
     }
-    let mut you = PlayerState::new();
-    let mut me = PlayerState::new();
+    let mut you = Numbers::new();
+    let mut me = Numbers::new();
     loop {
         writeln!(writer)?;
-        writeln!(writer, "me: {}", set_rep(&me.0))?;
-        writeln!(writer, "you: {}", set_rep(&you.0))?;
-        writeln!(writer, "available: {}", set_rep(&unused))?;
+        writeln!(writer, "me: {}", me)?;
+        writeln!(writer, "you: {}", you)?;
+        writeln!(writer, "available: {}", unused)?;
         write!(writer, "move: ")?;
         writer.flush()?;
         let mut answer = String::new();
@@ -84,14 +107,14 @@ fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), s
                 continue;
             }
         };
-        if !unused.remove(&n) {
+        if !unused.remove(n) {
             writeln!(writer, "unavailable choice try again")?;
             continue;
         }
         you.insert(n);
         if let Some(win) = you.won() {
             writeln!(writer)?;
-            writeln!(writer, "{}", set_rep(&win))?;
+            writeln!(writer, "{}", win)?;
             writeln!(writer, "you win")?;
             return Ok(());
         }
@@ -99,19 +122,14 @@ fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), s
             writeln!(writer, "draw")?;
             return Ok(());
         }
-        let choice;
-        { 
-            let choicevec: Vec<&u64> = unused.iter().collect();
-            let index = random::<usize>() % choicevec.len();
-            choice = *choicevec[index];
-        }
+        let choice = unused.random_choice();
         writeln!(writer)?;
         writeln!(writer, "I choose {}", choice)?;
-        unused.remove(&choice);
+        unused.remove(choice);
         me.insert(choice);
         if let Some(win) = me.won() {
             writeln!(writer)?;
-            writeln!(writer, "{}", set_rep(&win))?;
+            writeln!(writer, "{}", win)?;
             writeln!(writer, "I win")?;
             return Ok(());
         }
