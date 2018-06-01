@@ -11,8 +11,8 @@ in their hand wins. If neither player manages it before the
 pool is exhausted, it's a draw.
 
 There's a clever trick for playing perfect "15" as a
-human. The server plays randomly, so you won't really need
-it.
+human. The server plays heuristically, so while you
+can beat it you have to play carefully.
 
 This is just a dumb little networking demo. Ugly uncommented
 code: nothing much to see here.

@@ -47,8 +47,17 @@ impl Numbers {
         })
     }
 
-    fn random_choice(&self) -> u64 {
-        let choicevec: Vec<&u64> = self.0.iter().collect();
+    fn heuristic_choice(&self) -> u64 {
+        if self.0.contains(&5) {
+            return 5;
+        }
+        let corners: HashSet<u64> =
+            [2, 4, 6, 8].into_iter().map(|x| *x).collect();
+        let mut choices = &self.0 & &corners;
+        if choices.is_empty() {
+            choices = self.0.clone();
+        }
+        let choicevec: Vec<&u64> = choices.iter().collect();
         let index = random::<usize>() % choicevec.len();
         *choicevec[index]
     }
@@ -162,7 +171,7 @@ impl Player for MachinePlayer {
         writer: &mut Write) ->
         Result<(), Error>
     {
-        let choice = board.random_choice();
+        let choice = board.heuristic_choice();
         writeln!(writer, "{} choose {}", self.0.name, choice)?;
         board.remove(choice);
         self.0.numbers.insert(choice);
@@ -184,7 +193,7 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
     }
     let mut human = HumanPlayer(PlayerState::new("you"));
     let mut machine = MachinePlayer(PlayerState::new("I"));
-    let mut turn = 0;
+    let mut turn = random::<usize>() % 2;
     loop {
         let player: &mut Player;
         let opponent: &Player;
