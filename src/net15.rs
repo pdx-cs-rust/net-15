@@ -8,7 +8,7 @@ use rand::random;
 
 use std::net::*;
 use std::collections::HashSet;
-use std::io::{BufRead, Write};
+use std::io::{BufRead, Write, BufReader, Error};
 use std::fmt::{self, Display};
 
 #[derive(Clone)]
@@ -83,18 +83,56 @@ impl Numbers {
     }
 }
 
-fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), std::io::Error> {
-    let mut unused = Numbers::new();
-    for i in 1..=9 {
-        unused.insert(i);
+type Mover<'a> = fn(
+    &'a mut Numbers,
+    &'a mut Player,
+    &'a Player,
+    &'a mut BufRead,
+    &'a mut Write) ->
+    Result<(), Error>;
+
+struct Player<'a> {
+    numbers: Numbers,
+    name: &'static str,
+    mover: Mover<'a>,
+}
+
+impl<'a> Player<'a> {
+    fn new(name: &'static str,
+           mover: Mover<'a>) -> Player<'a>
+    {
+        Player {
+            numbers: Numbers::new(),
+            name,
+            mover,
+        }
     }
-    let mut you = Numbers::new();
-    let mut me = Numbers::new();
+
+    fn make_move (
+        &'a mut self, 
+        board: &'a mut Numbers,
+        opponent: &'a Player<'a>,
+        reader: &'a mut BufRead,
+        writer: &'a mut Write) ->
+        Result<(), Error>
+    {
+        (self.mover)(board, self, opponent, reader, writer)
+    }
+}           
+
+fn human_move<'a>(
+    board: &'a mut Numbers,
+    player: &'a mut Player,
+    opponent: &'a Player,
+    reader: &'a mut BufRead,
+    writer: &'a mut Write) ->
+    Result<(), Error>
+{
     loop {
         writeln!(writer)?;
-        writeln!(writer, "me: {}", me)?;
-        writeln!(writer, "you: {}", you)?;
-        writeln!(writer, "available: {}", unused)?;
+        writeln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
+        writeln!(writer, "{}: {}", player.name, player.numbers)?;
+        writeln!(writer, "available: {}", *board)?;
         write!(writer, "move: ")?;
         writer.flush()?;
         let mut answer = String::new();
@@ -107,36 +145,54 @@ fn game_loop<T: BufRead, U: Write>(mut reader: T, mut writer: U) -> Result<(), s
                 continue;
             }
         };
-        if !unused.remove(n) {
-            writeln!(writer, "unavailable choice try again")?;
-            continue;
+        if board.remove(n) {
+            player.numbers.insert(n);
+            break;
         }
-        you.insert(n);
-        if let Some(win) = you.won() {
+        writeln!(writer, "unavailable choice try again")?;
+    }
+    Ok(())
+}
+ 
+fn machine_move<'a>(
+    board: &'a mut Numbers,
+    player: &'a mut Player,
+    _: &'a Player,
+    _: &'a mut BufRead,
+    writer: &'a mut Write) ->
+    Result<(), Error>
+{
+    let choice = board.random_choice();
+    writeln!(writer, "{} choose {}", player.name, choice)?;
+    board.remove(choice);
+    player.numbers.insert(choice);
+    Ok(())
+}
+
+fn game_loop<'a, T, U>(mut reader: T, mut writer: U) ->
+    Result<(), Error>
+    where T: BufRead, U: Write
+{
+    let mut board = Numbers::new();
+    for i in 1..=9 {
+        board.insert(i);
+    }
+    let mut player = Player::new("you", human_move);
+    let mut opponent = Player::new("I", machine_move);
+    loop {
+        player.make_move(&mut board, &mut opponent,
+                         &mut reader, &mut writer)?;
+        if let Some(win) = player.numbers.won() {
             writeln!(writer)?;
             writeln!(writer, "{}", win)?;
-            writeln!(writer, "you win")?;
+            writeln!(writer, "{} win", player.name)?;
             return Ok(());
         }
-        if unused.is_empty() {
+        if board.is_empty() {
             writeln!(writer, "draw")?;
             return Ok(());
         }
-        let choice = unused.random_choice();
-        writeln!(writer)?;
-        writeln!(writer, "I choose {}", choice)?;
-        unused.remove(choice);
-        me.insert(choice);
-        if let Some(win) = me.won() {
-            writeln!(writer)?;
-            writeln!(writer, "{}", win)?;
-            writeln!(writer, "I win")?;
-            return Ok(());
-        }
-        if unused.is_empty() {
-            writeln!(writer, "draw")?;
-            return Ok(());
-        }
+        std::mem::swap(&mut player, &mut opponent);
     }
 }
 
@@ -150,7 +206,7 @@ fn main() {
                     let reader = socket;
                     let mut writer = reader.try_clone().unwrap();
                     writeln!(writer, "n15 v0.0.0.1").unwrap();
-                    let reader = std::io::BufReader::new(reader);
+                    let reader = BufReader::new(reader);
                     game_loop(reader, writer).unwrap();
                 });
             },
