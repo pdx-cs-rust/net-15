@@ -3,6 +3,10 @@
 // Please see the file LICENSE in the source
 // distribution of this software for license terms.
 
+//! `net15` is a TCP server that allows clients to telnet to
+//! port `10015` of `localhost` and play a simple textual
+//! game.
+
 extern crate rand;
 use rand::random;
 
@@ -11,6 +15,8 @@ use std::collections::HashSet;
 use std::io::{BufRead, Write, BufReader, Error};
 use std::fmt::{self, Display};
 
+/// Thin wrapper around a set of numbers, primarily for
+/// `Display`.
 #[derive(Clone)]
 struct Numbers(HashSet<u64>);
 
@@ -29,24 +35,39 @@ impl Display for Numbers {
 
 impl Numbers {
 
+    /// Create a new empty set of numbers.
     fn new() -> Numbers {
         Numbers(HashSet::new())
     }
 
+    /// Insert a number into the current numbers.
     fn insert(&mut self, e: u64) {
         assert!(self.0.insert(e));
     }
 
+    /// Remove a number from the current numbers.
     fn remove(&mut self, e: u64) -> bool {
         self.0.remove(&e)
     }
 
+    /// Do the current numbers contain a win?
     fn won(&self) -> Option<Numbers> {
         self.choose(3).into_iter().find(|Numbers(s)| {
             s.iter().sum::<u64>() == 15
         })
     }
 
+    /// Use a randomized heuristic to select a next number.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut ns = Numbers::new();
+    /// ns.insert(3);
+    /// ns.insert(4);
+    /// ns.insert(7);
+    /// assert_eq!(ns.heuristic_choice(), 4);
+    /// ```
     fn heuristic_choice(&self) -> u64 {
         if self.0.contains(&5) {
             return 5;
@@ -62,6 +83,8 @@ impl Numbers {
         *choicevec[index]
     }
 
+    /// List every way in which `n` numbers can be chosen
+    /// from the current numbers.
     fn choose(&self, n: u64) -> Vec<Numbers> {
         let s = &self.0;
         if n == 0 || s.len() < n as usize {
@@ -87,17 +110,26 @@ impl Numbers {
         result
     }
 
+    /// Are there any numbers?
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 }
 
+
+// XXX This is arguably an unnecessary generalization given
+// the current state. The name is essentially hardwired
+// anyhow, so the numbers could stand for themselves.
+
+/// Both the computer and human players carry the same
+/// state.
 struct PlayerState {
     numbers: Numbers,
     name: &'static str,
 }
 
 impl PlayerState {
+    /// Create a new player state.
     fn new(name: &'static str) -> Self {
         PlayerState {
             numbers: Numbers::new(),
@@ -106,7 +138,11 @@ impl PlayerState {
     }
 }
 
+/// Trait used by the game loop for interacting with the
+/// human or machine player.
 trait Player {
+    /// Make a move in the current game state, altering the
+    /// state.
     fn make_move(
         &mut self,
         &mut Numbers,
@@ -115,14 +151,18 @@ trait Player {
         &mut Write) ->
         Result<(), Error>;
 
+    /// Expose the player state readonly for inspection.
     fn state(&self) -> &PlayerState;
 }
 
 
+/// This player interacts with the human at the console to
+/// make its moves.
 struct HumanPlayer(PlayerState);
 
 impl Player for HumanPlayer {
 
+    /// Get a human move and make it.
     fn make_move(&mut self,
         board: &mut Numbers,
         opponent: &PlayerState,
@@ -155,6 +195,7 @@ impl Player for HumanPlayer {
         Ok(())
     }
 
+    /// Expose our state.
     fn state(&self) -> &PlayerState {
         &self.0
     }
@@ -164,6 +205,7 @@ struct MachinePlayer(PlayerState);
 
 impl Player for MachinePlayer {
 
+    /// Select a machine move and make it.
     fn make_move(&mut self,
         board: &mut Numbers,
         _: &PlayerState,
@@ -178,11 +220,14 @@ impl Player for MachinePlayer {
         Ok(())
     }
 
+    /// Expose our state.
     fn state(&self) -> &PlayerState {
         &self.0
     }
 }
 
+/// Run a single game, communicating over the given reader
+/// and writer.
 fn game_loop<T, U>(mut reader: T, mut writer: U) ->
     Result<(), Error>
     where T: BufRead, U: Write
@@ -222,6 +267,8 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
     }
 }
 
+/// Listen for connections to the game server and start a
+/// new game for each.
 fn main() {
     loop {
         let listener = TcpListener::bind("127.0.0.1:10015").unwrap();
