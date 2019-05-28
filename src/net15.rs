@@ -270,8 +270,8 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
 /// Listen for connections to the game server and start a
 /// new game for each.
 fn main() {
+    let listener = TcpListener::bind("127.0.0.1:10015").unwrap();
     loop {
-        let listener = TcpListener::bind("127.0.0.1:10015").unwrap();
         match listener.accept() {
             Ok((socket, addr)) => {
                 println!("new client: {:?}", addr);
