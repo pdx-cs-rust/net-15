@@ -26,7 +26,7 @@ impl Display for Numbers {
         elems.sort();
         let result: Vec<String> = elems
             .into_iter()
-            .map(|i| i.to_string())
+            .map(ToString::to_string)
             .collect();
         let result = result.join(" ");
         write!(f, "{}", result)
@@ -73,7 +73,7 @@ impl Numbers {
             return 5;
         }
         let corners: HashSet<u64> =
-            [2, 4, 6, 8].into_iter().map(|x| *x).collect();
+            [2, 4, 6, 8].iter().cloned().collect();
         let mut choices = &self.0 & &corners;
         if choices.is_empty() {
             choices = self.0.clone();
@@ -240,15 +240,12 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
     let mut machine = MachinePlayer(PlayerState::new("I"));
     let mut turn = random::<usize>() % 2;
     loop {
-        let player: &mut Player;
-        let opponent: &Player;
-        if turn % 2 == 0 {
-            player = &mut human;
-            opponent = &machine;
-        } else {
-            player = &mut machine;
-            opponent = &human;
-        }
+        let (player, opponent): (&mut Player, &Player) =
+            if turn % 2 == 0 {
+                (&mut human, &machine)
+            } else {
+                (&mut machine, &human)
+            };
         writeln!(writer)?;
         player.make_move(&mut board, opponent.state(),
                          &mut reader, &mut writer)?;
