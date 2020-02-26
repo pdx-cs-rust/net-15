@@ -12,7 +12,7 @@ use rand::random;
 
 use std::collections::HashSet;
 use std::fmt::{self, Display};
-use std::io::{BufRead, BufReader, Error, Write};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::net::*;
 
 /// Thin wrapper around a set of numbers, primarily for
@@ -176,7 +176,15 @@ impl Player for HumanPlayer {
             write!(writer, "move: ")?;
             writer.flush()?;
             let mut answer = String::new();
-            reader.read_line(&mut answer)?;
+            if let Err(e) = reader.read_line(&mut answer) {
+                if e.kind() == ErrorKind::InvalidData {
+                    writeln!(writer)?;
+                    writeln!(writer, "garbled input")?;
+                    eprintln!("garbled input");
+                    continue;
+                }
+                return Err(e);
+            }
             let n = answer.trim().parse::<u64>();
             let n = match n {
                 Ok(n) => n,
