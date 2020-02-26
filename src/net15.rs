@@ -145,10 +145,10 @@ trait Player {
     /// state.
     fn make_move(
         &mut self,
-        &mut Numbers,
-        &PlayerState,
-        &mut BufRead,
-        &mut Write) ->
+        _: &mut Numbers,
+        _: &PlayerState,
+        _: &mut dyn BufRead,
+        _: &mut dyn Write) ->
         Result<(), Error>;
 
     /// Expose the player state readonly for inspection.
@@ -166,8 +166,8 @@ impl Player for HumanPlayer {
     fn make_move(&mut self,
         board: &mut Numbers,
         opponent: &PlayerState,
-        reader: &mut BufRead,
-        writer: &mut Write) ->
+        reader: &mut dyn BufRead,
+        writer: &mut dyn Write) ->
         Result<(), Error>
     {
         loop {
@@ -209,8 +209,8 @@ impl Player for MachinePlayer {
     fn make_move(&mut self,
         board: &mut Numbers,
         _: &PlayerState,
-        _: &mut BufRead,
-        writer: &mut Write) ->
+        _: &mut dyn BufRead,
+        writer: &mut dyn Write) ->
         Result<(), Error>
     {
         let choice = board.heuristic_choice();
@@ -240,7 +240,7 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
     let mut machine = MachinePlayer(PlayerState::new("I"));
     let mut turn = random::<usize>() % 2;
     loop {
-        let (player, opponent): (&mut Player, &Player) =
+        let (player, opponent): (&mut dyn Player, &dyn Player) =
             if turn % 2 == 0 {
                 (&mut human, &machine)
             } else {
