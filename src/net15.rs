@@ -10,10 +10,10 @@
 extern crate rand;
 use rand::random;
 
-use std::net::*;
 use std::collections::HashSet;
-use std::io::{BufRead, Write, BufReader, Error};
 use std::fmt::{self, Display};
+use std::io::{BufRead, BufReader, Error, Write};
+use std::net::*;
 
 /// Thin wrapper around a set of numbers, primarily for
 /// `Display`.
@@ -24,17 +24,14 @@ impl Display for Numbers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut elems: Vec<&u64> = self.0.iter().collect();
         elems.sort();
-        let result: Vec<String> = elems
-            .into_iter()
-            .map(ToString::to_string)
-            .collect();
+        let result: Vec<String> =
+            elems.into_iter().map(ToString::to_string).collect();
         let result = result.join(" ");
         write!(f, "{}", result)
     }
 }
 
 impl Numbers {
-
     /// Create a new empty set of numbers.
     fn new() -> Numbers {
         Numbers(HashSet::new())
@@ -52,9 +49,9 @@ impl Numbers {
 
     /// Do the current numbers contain a win?
     fn won(&self) -> Option<Numbers> {
-        self.choose(3).into_iter().find(|Numbers(s)| {
-            s.iter().sum::<u64>() == 15
-        })
+        self.choose(3)
+            .into_iter()
+            .find(|Numbers(s)| s.iter().sum::<u64>() == 15)
     }
 
     /// Use a randomized heuristic to select a next number.
@@ -98,7 +95,8 @@ impl Numbers {
             let mut t = (*self).clone();
             t.remove(*e);
             result.extend(t.choose(n));
-            let v: Vec<Numbers> = t.choose(n - 1)
+            let v: Vec<Numbers> = t
+                .choose(n - 1)
                 .into_iter()
                 .map(|mut w| {
                     w.insert(*e);
@@ -115,7 +113,6 @@ impl Numbers {
         self.0.is_empty()
     }
 }
-
 
 // XXX This is arguably an unnecessary generalization given
 // the current state. The name is essentially hardwired
@@ -148,30 +145,32 @@ trait Player {
         _: &mut Numbers,
         _: &PlayerState,
         _: &mut dyn BufRead,
-        _: &mut dyn Write) ->
-        Result<(), Error>;
+        _: &mut dyn Write,
+    ) -> Result<(), Error>;
 
     /// Expose the player state readonly for inspection.
     fn state(&self) -> &PlayerState;
 }
-
 
 /// This player interacts with the human at the console to
 /// make its moves.
 struct HumanPlayer(PlayerState);
 
 impl Player for HumanPlayer {
-
     /// Get a human move and make it.
-    fn make_move(&mut self,
+    fn make_move(
+        &mut self,
         board: &mut Numbers,
         opponent: &PlayerState,
         reader: &mut dyn BufRead,
-        writer: &mut dyn Write) ->
-        Result<(), Error>
-    {
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
         loop {
-            writeln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
+            writeln!(
+                writer,
+                "{}: {}",
+                opponent.name, opponent.numbers
+            )?;
             writeln!(writer, "{}: {}", self.0.name, self.0.numbers)?;
             writeln!(writer, "available: {}", *board)?;
             write!(writer, "move: ")?;
@@ -204,15 +203,14 @@ impl Player for HumanPlayer {
 struct MachinePlayer(PlayerState);
 
 impl Player for MachinePlayer {
-
     /// Select a machine move and make it.
-    fn make_move(&mut self,
+    fn make_move(
+        &mut self,
         board: &mut Numbers,
         _: &PlayerState,
         _: &mut dyn BufRead,
-        writer: &mut dyn Write) ->
-        Result<(), Error>
-    {
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
         let choice = board.heuristic_choice();
         writeln!(writer, "{} choose {}", self.0.name, choice)?;
         board.remove(choice);
@@ -228,9 +226,10 @@ impl Player for MachinePlayer {
 
 /// Run a single game, communicating over the given reader
 /// and writer.
-fn game_loop<T, U>(mut reader: T, mut writer: U) ->
-    Result<(), Error>
-    where T: BufRead, U: Write
+fn game_loop<T, U>(mut reader: T, mut writer: U) -> Result<(), Error>
+where
+    T: BufRead,
+    U: Write,
 {
     let mut board = Numbers::new();
     for i in 1..=9 {
@@ -247,8 +246,12 @@ fn game_loop<T, U>(mut reader: T, mut writer: U) ->
                 (&mut machine, &human)
             };
         writeln!(writer)?;
-        player.make_move(&mut board, opponent.state(),
-                         &mut reader, &mut writer)?;
+        player.make_move(
+            &mut board,
+            opponent.state(),
+            &mut reader,
+            &mut writer,
+        )?;
         if let Some(win) = player.state().numbers.won() {
             writeln!(writer)?;
             writeln!(writer, "{}", win)?;
@@ -279,10 +282,10 @@ fn main() {
                     let reader = BufReader::new(reader);
                     game_loop(reader, writer).unwrap();
                 });
-            },
+            }
             Err(e) => {
                 println!("couldn't get client: {:?}", e);
-            },
+            }
         }
     }
 }
