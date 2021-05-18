@@ -24,8 +24,7 @@ impl Display for Numbers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut elems: Vec<&u64> = self.0.iter().collect();
         elems.sort();
-        let result: Vec<String> =
-            elems.into_iter().map(ToString::to_string).collect();
+        let result: Vec<String> = elems.into_iter().map(ToString::to_string).collect();
         let result = result.join(" ");
         write!(f, "{}", result)
     }
@@ -69,8 +68,7 @@ impl Numbers {
         if self.0.contains(&5) {
             return 5;
         }
-        let corners: HashSet<u64> =
-            [2, 4, 6, 8].iter().cloned().collect();
+        let corners: HashSet<u64> = [2, 4, 6, 8].iter().cloned().collect();
         let mut choices = &self.0 & &corners;
         if choices.is_empty() {
             choices = self.0.clone();
@@ -166,11 +164,7 @@ impl Player for HumanPlayer {
         writer: &mut dyn Write,
     ) -> Result<(), Error> {
         loop {
-            writeln!(
-                writer,
-                "{}: {}",
-                opponent.name, opponent.numbers
-            )?;
+            writeln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
             writeln!(writer, "{}: {}", self.0.name, self.0.numbers)?;
             writeln!(writer, "available: {}", *board)?;
             write!(writer, "move: ")?;
@@ -246,19 +240,13 @@ where
     let mut machine = MachinePlayer(PlayerState::new("I"));
     let mut turn = random::<usize>() % 2;
     loop {
-        let (player, opponent): (&mut dyn Player, &dyn Player) =
-            if turn % 2 == 0 {
-                (&mut human, &machine)
-            } else {
-                (&mut machine, &human)
-            };
+        let (player, opponent): (&mut dyn Player, &dyn Player) = if turn % 2 == 0 {
+            (&mut human, &machine)
+        } else {
+            (&mut machine, &human)
+        };
         writeln!(writer)?;
-        player.make_move(
-            &mut board,
-            opponent.state(),
-            &mut reader,
-            &mut writer,
-        )?;
+        player.make_move(&mut board, opponent.state(), &mut reader, &mut writer)?;
         if let Some(win) = player.state().numbers.won() {
             writeln!(writer)?;
             writeln!(writer, "{}", win)?;
