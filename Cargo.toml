@@ -10,7 +10,7 @@ authors = ["Bart Massey <bart@cs.pdx.edu>"]
 edition = "2018"
 
 [dependencies]
-rand = "*"
+rand = "0.8.3"
 
 [[bin]]
 name = "net15"
