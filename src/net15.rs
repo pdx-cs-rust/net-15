@@ -142,10 +142,10 @@ trait Player {
     /// state.
     fn make_move(
         &mut self,
-        _: &mut Numbers,
-        _: &PlayerState,
-        _: &mut dyn BufRead,
-        _: &mut dyn Write,
+        board: &mut Numbers,
+        opponent: &PlayerState,
+        reader: &mut dyn BufRead,
+        writer: &mut dyn Write,
     ) -> Result<(), Error>;
 
     /// Expose the player state readonly for inspection.
@@ -232,8 +232,7 @@ impl Player for MachinePlayer {
     }
 }
 
-/// Run a single game, communicating over the given reader
-/// and writer.
+/// Run a single game, communicating with the human player over the given reader and writer.
 fn game_loop<T, U>(mut reader: T, mut writer: U) -> Result<(), Error>
 where
     T: BufRead,
