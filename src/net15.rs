@@ -13,7 +13,25 @@ use rand::random;
 use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
-use std::net::*;
+
+use tokio::net;
+
+macro_rules! write {
+    ($writer:expr, $fmt:literal $(, $arg:expr)*) => {{
+        let s: String = format!($fmt $(, $arg)*);
+        $writer.write_all(s.as_bytes()).unwrap();
+    }}
+}
+
+macro_rules! writeln {
+    ($writer:expr) => {
+        write!($writer, "\n");
+    }
+    ($writer:expr, $fmt:literal $(, $arg:expr)*) => {{
+        write!($writer, $fmt $(, $arg)*);
+        write!($writer, "\n");
+    }}
+}
 
 /// Thin wrapper around a set of numbers, primarily for
 /// `Display`.
@@ -264,19 +282,17 @@ where
 
 /// Listen for connections to the game server and start a
 /// new game for each.
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:10015").unwrap();
+#[tokio::main]
+async fn main() {
+    let listener = net::TcpListener::bind("127.0.0.1:10015").await.unwrap();
     loop {
-        match listener.accept() {
+        match listener.accept().await {
             Ok((socket, addr)) => {
                 println!("new client: {:?}", addr);
-                let _ = std::thread::spawn(move || {
-                    let reader = socket;
-                    let mut writer = reader.try_clone().unwrap();
-                    writeln!(writer, "n15 v0.0.0.1").unwrap();
-                    let reader = BufReader::new(reader);
-                    game_loop(reader, writer).unwrap();
-                });
+                let (reader, mut writer) = socket.split();
+                writeln!(writer, "n15 v0.0.0.1").unwrap();
+                let reader = BufReader::new(reader);
+                game_loop(reader, writer).unwrap();
             }
             Err(e) => {
                 println!("couldn't get client: {:?}", e);
