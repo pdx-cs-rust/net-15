@@ -273,7 +273,8 @@ fn main() {
                 let _ = std::thread::spawn(move || {
                     let reader = socket;
                     let mut writer = reader.try_clone().unwrap();
-                    writeln!(writer, "n15 v0.0.0.1").unwrap();
+                    // https://stackoverflow.com/a/27841363
+                    writeln!(writer, "n15 {}", env!("CARGO_PKG_VERSION")).unwrap();
                     let reader = BufReader::new(reader);
                     game_loop(reader, writer).unwrap();
                 });
