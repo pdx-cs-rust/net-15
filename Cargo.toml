@@ -11,7 +11,3 @@ edition = "2018"
 
 [dependencies]
 rand = "0.8.3"
-
-[[bin]]
-name = "net15"
-path = "src/net15.rs"
