@@ -16,8 +16,8 @@ use std::io::{Error, ErrorKind, Write};
 use async_trait::async_trait;
 use rand::random;
 use tokio::{
-    net::{self, tcp},
     io::{self, AsyncBufReadExt, AsyncWriteExt},
+    net::{self, tcp},
 };
 
 type ReadStream<'a> = io::BufReader<tcp::ReadHalf<'a>>;
@@ -253,7 +253,9 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
     loop {
         awrite!(writer, "\r\n").await?;
         if flip {
-            human.make_move(&mut board, machine.state(), &mut reader, &mut writer).await?;
+            human
+                .make_move(&mut board, machine.state(), &mut reader, &mut writer)
+                .await?;
             if let Some(win) = human.state().numbers.won() {
                 awrite!(writer, "\r\n").await?;
                 awrite!(writer, "{}\r\n", win).await?;
@@ -261,7 +263,9 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
                 return Ok(());
             }
         } else {
-            machine.make_move(&mut board, human.state(), &mut reader, &mut writer).await?;
+            machine
+                .make_move(&mut board, human.state(), &mut reader, &mut writer)
+                .await?;
             if let Some(win) = machine.state().numbers.won() {
                 awrite!(writer, "\r\n").await?;
                 awrite!(writer, "{}\r\n", win).await?;
