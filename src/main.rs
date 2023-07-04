@@ -7,31 +7,16 @@
 //! port `10015` of `localhost` and play a simple textual
 //! game.
 
+mod write;
+
 extern crate rand;
 use rand::random;
 
 use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
-
 use tokio::net;
-
-macro_rules! write {
-    ($writer:expr, $fmt:literal $(, $arg:expr)*) => {{
-        let s: String = format!($fmt $(, $arg)*);
-        $writer.write_all(s.as_bytes()).unwrap();
-    }}
-}
-
-macro_rules! writeln {
-    ($writer:expr) => {
-        write!($writer, "\n");
-    }
-    ($writer:expr, $fmt:literal $(, $arg:expr)*) => {{
-        write!($writer, $fmt $(, $arg)*);
-        write!($writer, "\n");
-    }}
-}
+use tokio::io::AsyncWriteExt;
 
 /// Thin wrapper around a set of numbers, primarily for
 /// `Display`.
@@ -44,7 +29,7 @@ impl Display for Numbers {
         elems.sort();
         let result: Vec<String> = elems.into_iter().map(ToString::to_string).collect();
         let result = result.join(" ");
-        write!(f, "{}", result)
+        std::write!(f, "{}", result)
     }
 }
 
@@ -156,7 +141,7 @@ impl PlayerState {
 trait Player {
     /// Make a move in the current game state, altering the
     /// state.
-    fn make_move(
+    async fn make_move(
         &mut self,
         board: &mut Numbers,
         opponent: &PlayerState,
@@ -174,7 +159,7 @@ struct HumanPlayer(PlayerState);
 
 impl Player for HumanPlayer {
     /// Get a human move and make it.
-    fn make_move(
+    async fn make_move(
         &mut self,
         board: &mut Numbers,
         opponent: &PlayerState,
@@ -182,16 +167,16 @@ impl Player for HumanPlayer {
         writer: &mut dyn Write,
     ) -> Result<(), Error> {
         loop {
-            writeln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
-            writeln!(writer, "{}: {}", self.0.name, self.0.numbers)?;
-            writeln!(writer, "available: {}", *board)?;
-            write!(writer, "move: ")?;
+            write!(writer, "{}: {}\r\n", opponent.name, opponent.numbers).await?;
+            write!(writer, "{}: {}\r\n", self.0.name, self.0.numbers).await?;
+            write!(writer, "available: {}\r\n", *board).await?;
+            write!(writer, "move: ").await?;
             writer.flush()?;
             let mut answer = String::new();
             if let Err(e) = reader.read_line(&mut answer) {
                 if e.kind() == ErrorKind::InvalidData {
-                    writeln!(writer)?;
-                    writeln!(writer, "garbled input")?;
+                    write!(writer, "\r\n").await?;
+                    write!(writer, "garbled input\r\n").await?;
                     eprintln!("garbled input");
                     continue;
                 }
@@ -201,7 +186,7 @@ impl Player for HumanPlayer {
             let n = match n {
                 Ok(n) => n,
                 Err(_) => {
-                    writeln!(writer, "bad choice try again")?;
+                    write!(writer, "bad choice try again\r\n").await?;
                     continue;
                 }
             };
@@ -209,7 +194,7 @@ impl Player for HumanPlayer {
                 self.0.numbers.insert(n);
                 break;
             }
-            writeln!(writer, "unavailable choice try again")?;
+            write!(writer, "unavailable choice try again\r\n").await?;
         }
         Ok(())
     }
@@ -224,7 +209,7 @@ struct MachinePlayer(PlayerState);
 
 impl Player for MachinePlayer {
     /// Select a machine move and make it.
-    fn make_move(
+    async fn make_move(
         &mut self,
         board: &mut Numbers,
         _: &PlayerState,
@@ -232,7 +217,7 @@ impl Player for MachinePlayer {
         writer: &mut dyn Write,
     ) -> Result<(), Error> {
         let choice = board.heuristic_choice();
-        writeln!(writer, "{} choose {}", self.0.name, choice)?;
+        write!(writer, "{} choose {}\r\n", self.0.name, choice).await?;
         board.remove(choice);
         self.0.numbers.insert(choice);
         Ok(())
@@ -245,7 +230,7 @@ impl Player for MachinePlayer {
 }
 
 /// Run a single game, communicating with the human player over the given reader and writer.
-fn game_loop<T, U>(mut reader: T, mut writer: U) -> Result<(), Error>
+async fn game_loop<T, U>(mut reader: T, mut writer: U) -> Result<(), Error>
 where
     T: BufRead,
     U: Write,
@@ -263,17 +248,17 @@ where
         } else {
             (&mut machine, &human)
         };
-        writeln!(writer)?;
-        player.make_move(&mut board, opponent.state(), &mut reader, &mut writer)?;
+        write!(writer, "\r\n")?;
+        player.make_move(&mut board, opponent.state(), &mut reader, &mut writer).await?;
         if let Some(win) = player.state().numbers.won() {
-            writeln!(writer)?;
-            writeln!(writer, "{}", win)?;
-            writeln!(writer, "{} win", player.state().name)?;
+            write!(writer, "\r\n")?;
+            write!(writer, "{}\r\n", win)?;
+            write!(writer, "{} win\r\n", player.state().name)?;
             return Ok(());
         }
         if board.is_empty() {
-            writeln!(writer)?;
-            writeln!(writer, "draw")?;
+            write!(writer, "\r\n")?;
+            write!(writer, "draw\r\n")?;
             return Ok(());
         }
         turn += 1;
@@ -290,7 +275,7 @@ async fn main() {
             Ok((socket, addr)) => {
                 println!("new client: {:?}", addr);
                 let (reader, mut writer) = socket.split();
-                writeln!(writer, "n15 v0.0.0.1").unwrap();
+                write!(writer, "n15 v0.0.0.1\r\n").unwrap();
                 let reader = BufReader::new(reader);
                 game_loop(reader, writer).unwrap();
             }

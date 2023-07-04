@@ -15,7 +15,3 @@ rand = "0.8.3"
 [dependencies.tokio]
 version = "1.28.0"
 features = ["full"]
-
-[[bin]]
-name = "net15"
-path = "src/net15.rs"
