@@ -263,6 +263,7 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
                 return Ok(());
             }
         } else {
+            // XXX This copy-paste has to go. Can't see how to get rid of it though.
             machine
                 .make_move(&mut board, human.state(), &mut reader, &mut writer)
                 .await?;
