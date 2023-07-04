@@ -7,7 +7,7 @@
 name = "net-15"
 version = "0.1.9"
 authors = ["Bart Massey <bart@cs.pdx.edu>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-rand = "0.8.3"
+rand = "0.8.5"
