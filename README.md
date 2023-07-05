@@ -14,8 +14,10 @@ There's a clever trick for playing perfect "15" as a
 human. The server plays heuristically, so while you
 can beat it you have to play carefully.
 
-This is just a dumb little networking demo. Ugly uncommented
-code: nothing much to see here.
+There are two branches in this repo. This one, `main`
+contains a simple threaded version of the service. The
+`async` branch contains a version written using
+`async`/`await`.
 
 This program is licensed under the "MIT License".
 Please see the file LICENSE in the source
