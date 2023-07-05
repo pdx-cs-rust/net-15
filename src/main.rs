@@ -241,7 +241,7 @@ impl Player for MachinePlayer {
 async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
     let (reader, mut writer) = stream.split();
     let mut reader = tokio::io::BufReader::new(reader);
-    awrite!(writer, "n15 v0.0.0.1\r\n").await.unwrap();
+    awrite!(writer, "n15 v0.0.0.1\r\n").await?;
 
     let mut board = Numbers::new();
     for i in 1..=9 {
@@ -249,37 +249,32 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
     }
     let mut human = HumanPlayer(PlayerState::new("you"));
     let mut machine = MachinePlayer(PlayerState::new("I"));
-    let mut flip = random::<bool>();
+    let mut human_move = random::<bool>();
     loop {
         awrite!(writer, "\r\n").await?;
-        if flip {
+        let player_state = if human_move {
             human
                 .make_move(&mut board, machine.state(), &mut reader, &mut writer)
                 .await?;
-            if let Some(win) = human.state().numbers.won() {
-                awrite!(writer, "\r\n").await?;
-                awrite!(writer, "{}\r\n", win).await?;
-                awrite!(writer, "{} win\r\n", human.state().name).await?;
-                return Ok(());
-            }
+            human.state()
         } else {
-            // XXX This copy-paste has to go. Can't see how to get rid of it though.
             machine
                 .make_move(&mut board, human.state(), &mut reader, &mut writer)
                 .await?;
-            if let Some(win) = machine.state().numbers.won() {
-                awrite!(writer, "\r\n").await?;
-                awrite!(writer, "{}\r\n", win).await?;
-                awrite!(writer, "{} win\r\n", machine.state().name).await?;
-                return Ok(());
-            }
+            machine.state()
+        };
+        if let Some(win) = player_state.numbers.won() {
+            awrite!(writer, "\r\n").await?;
+            awrite!(writer, "{}\r\n", win).await?;
+            awrite!(writer, "{} win\r\n", player_state.name).await?;
+            return Ok(());
         }
         if board.is_empty() {
             awrite!(writer, "\r\n").await?;
             awrite!(writer, "draw\r\n").await?;
             return Ok(());
         }
-        flip = !flip;
+        human_move = !human_move;
     }
 }
 
