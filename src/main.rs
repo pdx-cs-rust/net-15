@@ -172,16 +172,16 @@ impl Player for HumanPlayer {
         writer: &mut WriteStream<'_>,
     ) -> Result<(), Error> {
         loop {
-            awriteln!(writer, "{}: {}", opponent.name, opponent.numbers).await?;
-            awriteln!(writer, "{}: {}", self.0.name, self.0.numbers).await?;
-            awriteln!(writer, "available: {}", *board).await?;
-            awrite!(writer, "move: ").await?;
+            awriteln!(writer, "{}: {}", opponent.name, opponent.numbers);
+            awriteln!(writer, "{}: {}", self.0.name, self.0.numbers);
+            awriteln!(writer, "available: {}", *board);
+            awrite!(writer, "move: ");
             writer.flush().await?;
             let mut answer = String::new();
             if let Err(e) = reader.read_line(&mut answer).await {
                 if e.kind() == ErrorKind::InvalidData {
-                    awriteln!(writer).await?;
-                    awriteln!(writer, "garbled input").await?;
+                    awriteln!(writer);
+                    awriteln!(writer, "garbled input");
                     eprintln!("garbled input");
                     continue;
                 }
@@ -191,7 +191,7 @@ impl Player for HumanPlayer {
             let n = match n {
                 Ok(n) => n,
                 Err(_) => {
-                    awriteln!(writer, "bad choice try again").await?;
+                    awriteln!(writer, "bad choice try again");
                     continue;
                 }
             };
@@ -199,7 +199,7 @@ impl Player for HumanPlayer {
                 self.0.numbers.insert(n);
                 break;
             }
-            awriteln!(writer, "unavailable choice try again").await?;
+            awriteln!(writer, "unavailable choice try again");
         }
         Ok(())
     }
@@ -222,7 +222,7 @@ impl Player for MachinePlayer {
         writer: &mut WriteStream<'_>,
     ) -> Result<(), Error> {
         let choice = board.heuristic_choice();
-        awriteln!(writer, "{} choose {}", self.0.name, choice).await?;
+        awriteln!(writer, "{} choose {}", self.0.name, choice);
         board.remove(choice);
         self.0.numbers.insert(choice);
         Ok(())
@@ -238,7 +238,7 @@ impl Player for MachinePlayer {
 async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
     let (reader, mut writer) = stream.split();
     let mut reader = tokio::io::BufReader::new(reader);
-    awriteln!(writer, "n15 v0.0.0.1").await?;
+    awriteln!(writer, "n15 v0.0.0.1");
 
     let mut board = Numbers::new();
     for i in 1..=9 {
@@ -248,7 +248,7 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
     let mut machine = MachinePlayer(PlayerState::new("I"));
     let mut human_move = fastrand::bool();
     loop {
-        awriteln!(writer).await?;
+        awriteln!(writer);
         let player_state = if human_move {
             human
                 .make_move(&mut board, machine.state(), &mut reader, &mut writer)
@@ -262,14 +262,14 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
         };
 
         if let Some(win) = player_state.numbers.won() {
-            awriteln!(writer).await?;
-            awriteln!(writer, "{}", win).await?;
-            awriteln!(writer, "{} win", player_state.name).await?;
+            awriteln!(writer);
+            awriteln!(writer, "{}", win);
+            awriteln!(writer, "{} win", player_state.name);
             return Ok(());
         }
         if board.is_empty() {
-            awriteln!(writer).await?;
-            awriteln!(writer, "draw").await?;
+            awriteln!(writer);
+            awriteln!(writer, "draw");
             return Ok(());
         }
 
