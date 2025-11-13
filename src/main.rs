@@ -16,7 +16,7 @@ use std::fmt::{self, Display};
 use std::io::Write;
 
 use tokio::{
-    io::{self, AsyncBufReadExt, AsyncWriteExt, Error, ErrorKind},
+    io::{self, AsyncBufReadExt, AsyncWriteExt, Result, ErrorKind},
     net::{self, tcp},
 };
 
@@ -152,7 +152,7 @@ trait Player {
         opponent: &PlayerState,
         reader: &mut ReadStream<'_>,
         writer: &mut WriteStream<'_>,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 
     /// Expose the player state readonly for inspection.
     fn state(&self) -> &PlayerState;
@@ -170,18 +170,18 @@ impl Player for HumanPlayer {
         opponent: &PlayerState,
         reader: &mut ReadStream<'_>,
         writer: &mut WriteStream<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         loop {
-            awriteln!(writer, "{}: {}", opponent.name, opponent.numbers);
-            awriteln!(writer, "{}: {}", self.0.name, self.0.numbers);
-            awriteln!(writer, "available: {}", *board);
-            awrite!(writer, "move: ");
+            awriteln!(writer, "{}: {}", opponent.name, opponent.numbers)?;
+            awriteln!(writer, "{}: {}", self.0.name, self.0.numbers)?;
+            awriteln!(writer, "available: {}", *board)?;
+            awrite!(writer, "move: ")?;
             writer.flush().await?;
             let mut answer = String::new();
             if let Err(e) = reader.read_line(&mut answer).await {
                 if e.kind() == ErrorKind::InvalidData {
-                    awriteln!(writer);
-                    awriteln!(writer, "garbled input");
+                    awriteln!(writer)?;
+                    awriteln!(writer, "garbled input")?;
                     eprintln!("garbled input");
                     continue;
                 }
@@ -191,7 +191,7 @@ impl Player for HumanPlayer {
             let n = match n {
                 Ok(n) => n,
                 Err(_) => {
-                    awriteln!(writer, "bad choice try again");
+                    awriteln!(writer, "bad choice try again")?;
                     continue;
                 }
             };
@@ -199,7 +199,7 @@ impl Player for HumanPlayer {
                 self.0.numbers.insert(n);
                 break;
             }
-            awriteln!(writer, "unavailable choice try again");
+            awriteln!(writer, "unavailable choice try again")?;
         }
         Ok(())
     }
@@ -220,9 +220,9 @@ impl Player for MachinePlayer {
         _: &PlayerState,
         _: &mut ReadStream<'_>,
         writer: &mut WriteStream<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let choice = board.heuristic_choice();
-        awriteln!(writer, "{} choose {}", self.0.name, choice);
+        awriteln!(writer, "{} choose {}", self.0.name, choice)?;
         board.remove(choice);
         self.0.numbers.insert(choice);
         Ok(())
@@ -235,10 +235,10 @@ impl Player for MachinePlayer {
 }
 
 /// Run a single game, communicating with the human player over the given reader and writer.
-async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
+async fn game_loop(mut stream: net::TcpStream) -> Result<()> {
     let (reader, mut writer) = stream.split();
     let mut reader = tokio::io::BufReader::new(reader);
-    awriteln!(writer, "n15 v0.0.0.1");
+    awriteln!(writer, "n15 v0.0.0.1")?;
 
     let mut board = Numbers::new();
     for i in 1..=9 {
@@ -248,7 +248,7 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
     let mut machine = MachinePlayer(PlayerState::new("I"));
     let mut human_move = fastrand::bool();
     loop {
-        awriteln!(writer);
+        awriteln!(writer)?;
         let player_state = if human_move {
             human
                 .make_move(&mut board, machine.state(), &mut reader, &mut writer)
@@ -262,14 +262,14 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
         };
 
         if let Some(win) = player_state.numbers.won() {
-            awriteln!(writer);
-            awriteln!(writer, "{}", win);
-            awriteln!(writer, "{} win", player_state.name);
+            awriteln!(writer)?;
+            awriteln!(writer, "{}", win)?;
+            awriteln!(writer, "{} win", player_state.name)?;
             return Ok(());
         }
         if board.is_empty() {
-            awriteln!(writer);
-            awriteln!(writer, "draw");
+            awriteln!(writer)?;
+            awriteln!(writer, "draw")?;
             return Ok(());
         }
 
