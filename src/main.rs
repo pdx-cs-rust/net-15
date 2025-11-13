@@ -9,14 +9,14 @@
 
 mod awrite;
 
+extern crate fastrand;
+
 use std::collections::HashSet;
 use std::fmt::{self, Display};
-use std::io::{Error, ErrorKind, Write};
+use std::io::Write;
 
-use async_trait::async_trait;
-use rand::random;
 use tokio::{
-    io::{self, AsyncBufReadExt, AsyncWriteExt},
+    io::{self, AsyncBufReadExt, AsyncWriteExt, Error, ErrorKind},
     net::{self, tcp},
 };
 
@@ -82,7 +82,7 @@ impl Numbers {
             choices = self.0.clone();
         }
         let choicevec: Vec<&u64> = choices.iter().collect();
-        let index = random::<usize>() % choicevec.len();
+        let index = fastrand::usize(..choicevec.len());
         *choicevec[index]
     }
 
@@ -143,7 +143,6 @@ impl PlayerState {
 
 /// Trait used by the game loop for interacting with the
 /// human or machine player.
-#[async_trait]
 trait Player {
     /// Make a move in the current game state, altering the
     /// state.
@@ -163,7 +162,6 @@ trait Player {
 /// make its moves.
 struct HumanPlayer(PlayerState);
 
-#[async_trait]
 impl Player for HumanPlayer {
     /// Get a human move and make it.
     async fn make_move(
@@ -214,7 +212,6 @@ impl Player for HumanPlayer {
 
 struct MachinePlayer(PlayerState);
 
-#[async_trait]
 impl Player for MachinePlayer {
     /// Select a machine move and make it.
     async fn make_move(
@@ -249,7 +246,7 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
     }
     let mut human = HumanPlayer(PlayerState::new("you"));
     let mut machine = MachinePlayer(PlayerState::new("I"));
-    let mut human_move = random::<bool>();
+    let mut human_move = fastrand::bool();
     loop {
         awriteln!(writer).await?;
         let player_state = if human_move {
@@ -263,6 +260,7 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
                 .await?;
             machine.state()
         };
+
         if let Some(win) = player_state.numbers.won() {
             awriteln!(writer).await?;
             awriteln!(writer, "{}", win).await?;
@@ -274,6 +272,7 @@ async fn game_loop(mut stream: net::TcpStream) -> Result<(), Error> {
             awriteln!(writer, "draw").await?;
             return Ok(());
         }
+
         human_move = !human_move;
     }
 }
