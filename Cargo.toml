@@ -16,3 +16,7 @@ fastrand = "2.3.0"
 [dependencies.tokio]
 version = "1.29.1"
 features = ["full"]
+
+[dependencies.awrite]
+version = "0.1.0"
+git = "http://github.com/BartMassey/awrite"

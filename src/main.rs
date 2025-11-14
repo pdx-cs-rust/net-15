@@ -7,7 +7,7 @@
 //! port `10015` of `localhost` and play a simple textual
 //! game.
 
-mod awrite;
+use awrite::*;
 
 extern crate fastrand;
 
